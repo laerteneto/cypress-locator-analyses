@@ -1,6 +1,6 @@
 {
   "name": "cypress-locator-analyses",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Cypress plugin and linter that grades selector fragility (A–F) and ranks the tests most likely to break.",
   "license": "MIT",
   "main": "dist/index.js",
