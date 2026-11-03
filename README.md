@@ -47,6 +47,86 @@ npm i -D cypress-locator-analyses
 yarn add -D cypress-locator-analyses
 ```
 
+## JavaScript and TypeScript
+
+It works the same way with both, and you can mix them in one project:
+
+- Spec files can be `.cy.ts`, `.cy.js`, `.cy.tsx`, `.cy.jsx` (and `.spec`/`.test` files).
+- Page objects, helpers and custom commands are followed whether they are written in TypeScript or JavaScript, including JavaScript classes that set selectors in the constructor (`this.submit = '...'`) and `export default new LoginPage()`.
+- Import aliases are read from the nearest `tsconfig.json` or `jsconfig.json`. To use another file, pass `--tsconfig <file>` (CLI) or the `tsconfig` option (plugin).
+
+**Config**
+
+```ts
+// cypress.config.ts
+import { defineConfig } from 'cypress';
+import locatorAnalyses from 'cypress-locator-analyses';
+
+export default defineConfig({
+  e2e: {
+    setupNodeEvents(on, config) {
+      locatorAnalyses(on, config, { htmlFile: 'fragility-report.html' });
+      return config;
+    },
+  },
+});
+```
+
+```js
+// cypress.config.js
+const { defineConfig } = require('cypress');
+const { locatorAnalyses } = require('cypress-locator-analyses');
+
+module.exports = defineConfig({
+  e2e: {
+    setupNodeEvents(on, config) {
+      locatorAnalyses(on, config, { htmlFile: 'fragility-report.html' });
+      return config;
+    },
+  },
+});
+```
+
+**Page object**
+
+```ts
+// cypress/pages/login.page.ts
+export class LoginPage {
+  readonly email = '[data-cy=email]'; // A
+
+  get submit() {
+    return cy.findByRole('button', { name: 'Sign in' }); // A
+  }
+
+  login(email: string) {
+    cy.get(this.email).type(email);
+    this.submit.click();
+  }
+}
+```
+
+```js
+// cypress/pages/login.page.js
+class LoginPage {
+  constructor() {
+    this.email = '#email'; // B
+  }
+
+  elements = {
+    submit: () => cy.get('form > div:nth-child(3) > button'), // F
+  };
+
+  login(email) {
+    cy.get(this.email).type(email);
+    this.elements.submit().click();
+  }
+}
+
+export default new LoginPage();
+```
+
+Either way, a test that calls `loginPage.login('ana@example.com')` is graded on the selectors inside `login()`.
+
 ## Usage as a plugin
 
 ```ts
@@ -68,8 +148,6 @@ export default defineConfig({
   },
 });
 ```
-
-With CommonJS: `const { locatorAnalyses } = require('cypress-locator-analyses');`.
 
 The analysis runs on the `after:run` event, so it runs with `cypress run` (and with `cypress open` only if `experimentalInteractiveRunEvents` is on).
 
@@ -102,7 +180,7 @@ npx cypress-locator-analyses cypress/e2e --fail-on-risk 80   # exit code 1 if an
 | `--top-locators <n>` | Number of "locators worth fixing" to show (default 5) |
 | `--fail-on-risk <0-100>` | Fail if any test has risk >= n |
 | `--support <path>` | File or folder with custom commands (default: `cypress/support` of the project that holds the specs). Repeatable |
-| `--tsconfig <file>` | tsconfig used to resolve imports/aliases (auto-detected) |
+| `--tsconfig <file>` | `tsconfig.json` or `jsconfig.json` used to resolve imports/aliases (default: the nearest one) |
 | `--test-id-attribute <attr>` | Custom test id attribute (e.g. `data-automation`) |
 | `--pattern <regex>` | Test file regex (default `\.(cy\|spec\|test)\.[cm]?[jt]sx?$`) |
 
@@ -174,6 +252,8 @@ console.log(formatConsole(report));
 
 scoreSelector('div > li:nth-child(2)', new ScoreContext()).score; // 95 (F)
 ```
+
+In JavaScript: `const { analyzeFiles, buildReport, formatConsole } = require('cypress-locator-analyses');`.
 
 ## Limitations
 
