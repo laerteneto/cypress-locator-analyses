@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Unit and CLI tests
+        run: pnpm test
+
+      - name: Run the CLI on the example project
+        run: pnpm run example
+
+      - name: Run real Cypress tests with the plugin
+        run: pnpm run e2e
+
+      - name: Verify the plugin output
+        run: pnpm run e2e:verify
+
+      - name: Check that failOnRisk fails the Cypress run
+        run: |
+          if FAIL_ON_RISK=90 pnpm exec cypress run --project e2e > fail-on-risk.log 2>&1; then
+            echo "cypress run should have failed because of failOnRisk"; cat fail-on-risk.log; exit 1
+          fi
+          grep -q "test(s) with risk >= 90 (failOnRisk)" fail-on-risk.log
+
+      - name: Check package contents
+        run: pnpm pack --dry-run
+
+      - name: Upload reports
+        if: ${{ always() && matrix.node == 24 }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: fragility-reports
+          path: |
+            e2e/fragility-report.*
+            example/fragility-report.*
+          if-no-files-found: ignore
+          retention-days: 14
