@@ -159,3 +159,11 @@ describe('JavaScript page objects', () => {
     ]);
   });
 });
+
+describe('JavaScript projects', () => {
+  it('follows import aliases from the nearest jsconfig.json', () => {
+    const dir = path.join(fixtures, 'js-project');
+    const [test] = analyzeFiles([path.join(dir, 'checkout.cy.js')], { cwd: dir, supportFiles: [] });
+    expect(test.uses.map((u) => [u.code, u.grade])).toEqual([['cy.get(this.payButton)', 'F']]);
+  });
+});
